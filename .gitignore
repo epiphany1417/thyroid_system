@@ -1,0 +1,48 @@
+# 大数据集（超过GitHub 100MB限制）
+TN5000.rar
+
+# 预训练模型权重（需要单独下载）
+yolov5s.pt
+
+# YOLOv5框架（单独克隆）
+backend/model/yolov5/
+
+# 训练产物
+backend/model/runs/
+backend/model/datasets/
+
+# 用户上传
+backend/uploads/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统
+.DS_Store
+Thumbs.db
