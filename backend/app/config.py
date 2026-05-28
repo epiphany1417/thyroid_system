@@ -10,3 +10,9 @@ class Config:
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+
+    # LLM配置（支持OpenAI、Claude及兼容接口）
+    LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'openai')
+    LLM_API_KEY = os.environ.get('LLM_API_KEY', 'sk-e83ccc3c18e24a048eaef9100bf0ba75')
+    LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'https://api.deepseek.com')
+    LLM_MODEL = os.environ.get('LLM_MODEL', 'deepseek-chat')

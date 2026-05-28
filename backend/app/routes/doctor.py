@@ -4,6 +4,7 @@ from werkzeug.utils import secure_filename
 from app import db
 from app.models import User, Diagnosis, OperationLog
 from app.services.ai_service import analyze_image
+from app.services.llm_service import generate_diagnosis_opinion
 import os, uuid
 
 doctor_bp = Blueprint('doctor', __name__)
@@ -100,6 +101,18 @@ def run_ai_diagnose(diag_id):
     diagnosis.bbox_w = result['bbox']['w']
     diagnosis.bbox_h = result['bbox']['h']
     diagnosis.risk_level = result['risk_level']
+
+    # 调用大模型生成诊断参考意见（不阻塞主流程）
+    ai_opinion = generate_diagnosis_opinion(
+        ai_result=result['ai_result'],
+        ai_confidence=result['ai_confidence'],
+        risk_level=result['risk_level'],
+        bbox=result['bbox'],
+        config=current_app.config
+    )
+    if ai_opinion:
+        diagnosis.ai_opinion = ai_opinion
+
     db.session.commit()
 
     return jsonify({'code': 200, 'msg': 'AI诊断完成', 'data': diagnosis.to_dict()})
@@ -181,6 +194,47 @@ def update_opinion(diag_id):
     db.session.commit()
     
     return jsonify({'code': 200, 'msg': '意见已更新', 'data': diagnosis.to_dict()})
+
+@doctor_bp.route('/diagnoses/<int:diag_id>/ai-result', methods=['PUT'])
+@jwt_required()
+def update_ai_result(diag_id):
+    """医生修改AI诊断结果（良恶性分类和风险等级）"""
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+    if user.role != 'doctor':
+        return jsonify({'code': 403, 'msg': '无权限'}), 403
+
+    diagnosis = Diagnosis.query.get_or_404(diag_id)
+    if diagnosis.doctor_id != user_id:
+        return jsonify({'code': 403, 'msg': '该记录未分配给您'}), 403
+
+    data = request.get_json()
+    new_result = data.get('ai_result')
+    new_risk = data.get('risk_level')
+
+    if new_result and new_result not in ('benign', 'malignant'):
+        return jsonify({'code': 400, 'msg': '无效的分类结果'}), 400
+    if new_risk and new_risk not in ('low', 'medium', 'high'):
+        return jsonify({'code': 400, 'msg': '无效的风险等级'}), 400
+
+    # 首次修改时保存原始AI结果
+    if diagnosis.original_ai_result is None:
+        diagnosis.original_ai_result = diagnosis.ai_result
+        diagnosis.original_risk_level = diagnosis.risk_level
+
+    if new_result:
+        diagnosis.ai_result = new_result
+    if new_risk:
+        diagnosis.risk_level = new_risk
+
+    log = OperationLog(user_id=user_id, action='update_ai_result',
+                       detail=f'修改诊断记录ID:{diag_id} AI结果: {new_result}, 风险等级: {new_risk}',
+                       ip_address=request.remote_addr)
+    db.session.add(log)
+    db.session.commit()
+
+    return jsonify({'code': 200, 'msg': 'AI结果已更新', 'data': diagnosis.to_dict()})
+
 
 @doctor_bp.route('/patients', methods=['GET'])
 @jwt_required()

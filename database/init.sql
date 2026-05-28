@@ -40,11 +40,27 @@ CREATE TABLE IF NOT EXISTS diagnoses (
     bbox_h INT DEFAULT NULL,
     doctor_opinion TEXT,
     risk_level ENUM('low', 'medium', 'high') DEFAULT NULL,
+    original_ai_result ENUM('benign', 'malignant') DEFAULT NULL,
+    original_risk_level ENUM('low', 'medium', 'high') DEFAULT NULL,
+    ai_opinion TEXT DEFAULT NULL,
     status ENUM('pending', 'completed', 'reviewed') DEFAULT 'pending',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (patient_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (doctor_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- 操作日志表
+CREATE TABLE IF NOT EXISTS operation_logs (
+
+-- 验证码表（忘记密码）
+CREATE TABLE IF NOT EXISTS verification_codes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    contact VARCHAR(100) NOT NULL,
+    code VARCHAR(6) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used TINYINT(1) DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 操作日志表

@@ -49,6 +49,9 @@ class Diagnosis(db.Model):
     bbox_h = db.Column(db.Integer)
     doctor_opinion = db.Column(db.Text)
     risk_level = db.Column(db.Enum('low', 'medium', 'high'))
+    original_ai_result = db.Column(db.Enum('benign', 'malignant'))
+    original_risk_level = db.Column(db.Enum('low', 'medium', 'high'))
+    ai_opinion = db.Column(db.Text)
     status = db.Column(db.Enum('pending', 'completed', 'reviewed'), default='pending')
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
@@ -68,11 +71,24 @@ class Diagnosis(db.Model):
             'bbox': {'x': self.bbox_x, 'y': self.bbox_y, 'w': self.bbox_w, 'h': self.bbox_h},
             'doctor_opinion': self.doctor_opinion,
             'risk_level': self.risk_level,
+            'original_ai_result': self.original_ai_result,
+            'original_risk_level': self.original_risk_level,
+            'ai_opinion': self.ai_opinion,
             'status': self.status,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
             'patient_name': self.patient.real_name if self.patient else None,
             'doctor_name': self.doctor.real_name if self.doctor else None
         }
+
+class VerificationCode(db.Model):
+    __tablename__ = 'verification_codes'
+    id = db.Column(db.Integer, primary_key=True)
+    contact = db.Column(db.String(100), nullable=False)
+    code = db.Column(db.String(6), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
 
 class OperationLog(db.Model):
     __tablename__ = 'operation_logs'

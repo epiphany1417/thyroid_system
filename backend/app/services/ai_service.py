@@ -9,15 +9,20 @@ MODEL_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'model')
 MODEL_PATH = os.path.join(MODEL_DIR, 'runs', 'thyroid_det', 'weights', 'best.pt')
 YOLOV5_DIR = os.path.join(MODEL_DIR, 'yolov5')
 model = None
+_model_loaded = False
 
 
 def load_model():
     """加载YOLOv5模型"""
-    global model
+    global model, _model_loaded
+    _model_loaded = True
     if os.path.exists(MODEL_PATH) and os.path.exists(YOLOV5_DIR):
         try:
             import torch
-            model = torch.hub.load(YOLOV5_DIR, 'custom', path=MODEL_PATH, source='local')
+            # 禁用ultralytics自动依赖检查，避免pip install阻塞
+            os.environ['YOLOV5_VERBOSE'] = 'False'
+            os.environ['YOLOv5_SKIP_CHECKS'] = '1'
+            model = torch.hub.load(YOLOV5_DIR, 'custom', path=MODEL_PATH, source='local', _verbose=False)
             model.conf = 0.25
             print(f"[AI] YOLOv5模型加载成功: {MODEL_PATH}")
         except Exception as e:
@@ -56,6 +61,8 @@ def classify_by_rules(bbox_w, bbox_h, img_w, img_h):
 
 def analyze_image(image_path, output_dir):
     """分析超声图像，返回检测结果"""
+    if not _model_loaded:
+        load_model()
     try:
         img = Image.open(image_path)
         img_w, img_h = img.size
@@ -106,5 +113,4 @@ def analyze_image(image_path, output_dir):
         return {'success': False, 'error': str(e)}
 
 
-# 启动时加载模型
-load_model()
+# 延迟加载：首次调用 analyze_image 时才加载模型，避免阻塞Flask启动

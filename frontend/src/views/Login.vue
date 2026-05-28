@@ -14,6 +14,8 @@
         </el-form-item>
         <div class="link-row">
           <router-link to="/register">没有账号？去注册</router-link>
+          <span style="margin:0 8px;color:#dcdfe6">|</span>
+          <router-link to="/forgot-password">忘记密码？</router-link>
         </div>
       </el-form>
     </div>

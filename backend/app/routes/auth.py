@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from app import db
-from app.models import User, Patient, OperationLog
+from app.models import User, Patient, OperationLog, VerificationCode
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -86,3 +86,84 @@ def update_profile():
     
     db.session.commit()
     return jsonify({'code': 200, 'msg': '更新成功', 'data': user.to_dict()})
+
+
+@auth_bp.route('/send-code', methods=['POST'])
+def send_code():
+    """发送验证码（手机号或邮箱）"""
+    data = request.get_json()
+    contact = data.get('contact', '').strip()
+
+    if not contact:
+        return jsonify({'code': 400, 'msg': '请输入手机号或邮箱'}), 400
+
+    # 查找该联系方式是否存在于用户表中
+    user = User.query.filter(
+        db.or_(User.phone == contact, User.email == contact)
+    ).first()
+    if not user:
+        return jsonify({'code': 404, 'msg': '该手机号或邮箱未注册'}), 404
+
+    # 生成6位随机验证码
+    import random
+    code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+
+    # 存储验证码，60秒过期
+    from datetime import datetime, timedelta
+    vc = VerificationCode(
+        contact=contact,
+        code=code,
+        expires_at=datetime.now() + timedelta(seconds=60)
+    )
+    db.session.add(vc)
+    db.session.commit()
+
+    # 开发环境直接返回验证码，生产环境改为发送邮件/短信
+    return jsonify({
+        'code': 200,
+        'msg': '验证码已生成',
+        'data': {'code': code}  # 生产环境应移除此行
+    })
+
+
+@auth_bp.route('/reset-password', methods=['POST'])
+def reset_password():
+    """通过验证码重置密码"""
+    data = request.get_json()
+    contact = data.get('contact', '').strip()
+    code = data.get('code', '').strip()
+    new_password = data.get('new_password', '')
+
+    if not contact or not code or not new_password:
+        return jsonify({'code': 400, 'msg': '参数不完整'}), 400
+
+    if len(new_password) < 6:
+        return jsonify({'code': 400, 'msg': '密码长度不能少于6位'}), 400
+
+    # 查找有效验证码
+    from datetime import datetime
+    vc = VerificationCode.query.filter(
+        VerificationCode.contact == contact,
+        VerificationCode.code == code,
+        VerificationCode.used == False
+    ).order_by(VerificationCode.created_at.desc()).first()
+
+    if not vc:
+        return jsonify({'code': 400, 'msg': '验证码错误'}), 400
+
+    if vc.expires_at < datetime.now():
+        return jsonify({'code': 400, 'msg': '验证码已过期，请重新获取'}), 400
+
+    # 查找对应用户
+    user = User.query.filter(
+        db.or_(User.phone == contact, User.email == contact)
+    ).first()
+    if not user:
+        return jsonify({'code': 404, 'msg': '用户不存在'}), 404
+
+    # 更新密码
+    user.password_hash = generate_password_hash(new_password)
+    vc.used = True
+    db.session.commit()
+
+    return jsonify({'code': 200, 'msg': '密码重置成功，请使用新密码登录'})

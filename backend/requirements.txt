@@ -6,3 +6,5 @@ pymysql==1.1.0
 werkzeug==3.0.1
 Pillow==10.1.0
 numpy==1.26.2
+openai>=1.0.0
+anthropic>=0.50.0
